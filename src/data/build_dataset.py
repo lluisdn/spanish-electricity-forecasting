@@ -1,5 +1,5 @@
 import pandas as pd
-
+from pathlib import Path
 
 def build_dataset(verbose = False):
    
@@ -27,11 +27,12 @@ def build_dataset(verbose = False):
 
     df_electricity['datetime'] = pd.to_datetime(df_electricity['timestamp'], unit='s')
     df_weather['datetime'] = pd.to_datetime(df_weather['timestamp'], unit='s')
+    df_electricity["datetime"] = df_electricity["datetime"].dt.tz_localize(None) 
 
     if verbose:
         print('Left join...')
 
-    df = pd.merge(df_electricity, df_weather, on='timestamp', how='inner')
+    df = pd.merge(df_electricity[['datetime','demand_mw']], df_weather, on='datetime', how='inner')
 
     return df
 
@@ -41,7 +42,7 @@ if __name__ == "__main__":
 
     df = build_dataset(verbose=True)
 
-    df.to_csv(output_dir / "ree_demand_2021_01.csv", index=False)
+    df.to_csv(output_dir / "processed_data_2021_01.csv", index=False)
 
     print(df.head())
     print(f"Rows downloaded: {len(df)}")
