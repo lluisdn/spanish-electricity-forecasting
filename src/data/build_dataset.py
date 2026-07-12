@@ -34,6 +34,16 @@ def build_dataset(verbose = False):
 
     df = pd.merge(df_electricity[['datetime','demand_mw']], df_weather, on='datetime', how='inner')
 
+    # Dataset validation
+    print('df shape:', df.shape)
+    print('df missings:', df.isna().sum())
+    expected_range = pd.date_range(
+        start=df["datetime"].min(),
+        end=df["datetime"].max(),
+        freq="h")
+    missing_datetimes = expected_range.difference(df["datetime"])
+    print(f"Missing hours: {len(missing_datetimes)}")
+
     return df
 
 if __name__ == "__main__":
