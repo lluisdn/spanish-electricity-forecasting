@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error 
 
-
 def evaluation(alpha = 0.1):
     data = "data/processed/predictions_2021_01.csv"
 
