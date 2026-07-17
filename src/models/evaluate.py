@@ -37,12 +37,20 @@ def evaluation(df, conformal_evaluation = True):
 if __name__ == "__main__":
    
     df_pred_path = Path("data/processed/predictions_2021_01.csv")
+    df_pred_path_baseline = Path("data/processed/baseline_lag24h_predictions_2021_01.csv")
+    df_pred_path_baseline2 = Path("data/processed/baseline_lag168h_predictions_2021_01.csv")
 
     df_pred = pd.read_csv(df_pred_path)
+    df_pred_baseline = pd.read_csv(df_pred_path_baseline)
+    df_pred_baseline2 = pd.read_csv(df_pred_path_baseline2)
 
     evaluation_results = evaluation(df_pred, conformal_evaluation = False)
+    evaluation_results_baseline = evaluation(df_pred_baseline, conformal_evaluation = False)
+    evaluation_results_baseline2 = evaluation(df_pred_baseline2, conformal_evaluation = False)
 
-    print(evaluation_results)
+    print('XGBoost:',evaluation_results)
+    print('24h lag:',evaluation_results_baseline)
+    print('168h lag:',evaluation_results_baseline2)
 
 
 

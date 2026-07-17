@@ -1,116 +1,49 @@
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.model_selection import TimeSeriesSplit
-import matplotlib.dates as mdates
-import xgboost as xgb
 from pathlib import Path
 
+from src.models.train import data_partition
+from src.config import _TRAIN_SIZE, _CAL_SIZE
 
-def xgbmodel(alpha=0.1, train_size=0.6, cal_size = 0.2):
-    data = "data/processed/final_data_2021_01.csv"
+class Lag24hBaseline:
 
-    df = pd.read_csv(data)
+    def fit(self, X, y=None):
+        return self
 
-    df['datetime'] = pd.to_datetime(df['datetime'])
-    df = df.dropna().reset_index(drop=True)
+    def predict(self, X):
+        return X["demand_lag_24h"].values
 
-    n = len(df)
 
-    train_end = int(n * train_size)
-    cal_end = int(n * (train_size + cal_size))
-
-    train = df.iloc[:train_end]
-    calibration = df.iloc[train_end:cal_end]
-    test = df.iloc[cal_end:]
-
-    features = ['hour', 'day_of_week','is_weekend', 'month', 'day_of_year',
-            'demand_lag_1h', 'demand_lag_24h', 'demand_rolling_24h']
-    target = 'demand_mw'
-    
-    X_train = train[features]
-    y_train = train[target]
-    
-    X_cal = calibration[features]
-    y_cal = calibration[target]
-
-    X_test = test[features]
-    y_test = test[target]
-
-    xgb_reg = xgb.XGBRegressor(booster='gbtree',
-                               seed=42,        
-                               n_estimators=1000,
-                               objective='reg:squarederror',
-                               reg_lambda=0.001, 
-                               max_depth=5,
-                               eta=0.01,
-                               eval_metric="rmse")
-
-    xgb_reg.fit(X_train, y_train, verbose = False)
-
-    cal_pred = xgb_reg.predict(X_cal)
-
-    cal_errors = np.abs(y_cal - cal_pred)
-
-    cal_cp_df = calibration.copy()
-    cal_cp_df['prediction'] = cal_pred
-    cal_cp_df['errors'] = cal_errors
-
-    def conformal_prediction(calibration_df, plot=True, alpha=alpha):
-        q = np.quantile(calibration_df['errors'], 1 - alpha)
-
-        if plot:
-            plt.hist(calibration_df['errors'], bins = 20, edgecolor='white', linewidth=1.2, alpha=0.85)
-            plt.axvline(q, color='black', linestyle = '--', label = f'Percentil 90, {q:.2f}')
-            plt.show()
-
-        return q
-
-    q = conformal_prediction(cal_cp_df)
-        
-    test_pred = xgb_reg.predict(X_test)
-    lower = test_pred - q
-    upper = test_pred + q
-    test_errors = np.abs(y_test - test_pred)
-
-    fig, ax = plt.subplots(figsize=(12, 6))
-    ax.plot(train['datetime'], train['demand_mw'], label= 'Train', color = 'blue')
-    ax.plot(calibration['datetime'], cal_pred, label = 'Calibration (preds)',  color = 'orange')
-    ax.plot(calibration['datetime'], calibration['demand_mw'], label = 'Calibration (real)', color = 'black', linestyle = '--')
-    ax.plot(test['datetime'], test_pred, label = 'Test (preds)', color = 'green')
-    ax.fill_between(test['datetime'], lower, upper, color='green', 
-                    alpha=0.5, label=f"{(1-alpha)*100}% prediction interval")
-    ax.plot(test['datetime'], y_test, label = 'Test (real)', color = 'black', linestyle = '--')
-
-    ax.xaxis.set_major_locator(mdates.DayLocator(bymonthday=None, interval=1))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%d'))
-
-    plt.xticks(rotation=45)
-    plt.xlabel('January')
-    plt.ylabel('Demand (MW)')
-    plt.title('Spanish Electric Demand, January 2021')
-    plt.tight_layout()
-    plt.legend()
-    plt.show()
+def build_baseline_output(df, predictions, split_name):
 
     output_df = df.copy()
+    output_df["split"] = split_name
+    output_df["model"] = "lag_24h_baseline"
+    output_df["y_pred"] = predictions
+    output_df["absolute_error"] = (
+        output_df["demand_mw"] - output_df["y_pred"]
+    ).abs()
 
-    output_df.loc[train.index, "split"] = "train"
-    output_df.loc[calibration.index, "split"] = "calibration"
-    output_df.loc[test.index, "split"] = "test"
+    return output_df
 
-    output_df["y_pred"] = np.nan
-    output_df["lower"] = np.nan
-    output_df["upper"] = np.nan
-    output_df["absolute_error"] = np.nan
 
-    output_df.loc[calibration.index, "y_pred"] = cal_pred
-    output_df.loc[calibration.index, "absolute_error"] = cal_errors
+class Lag168hBaseline:
 
-    output_df.loc[test.index, "y_pred"] = test_pred
-    output_df.loc[test.index, "absolute_error"] = test_errors
-    output_df.loc[test.index, "lower"] = lower
-    output_df.loc[test.index, "upper"] = upper
+    def fit(self, X, y=None):
+        return self
+
+    def predict(self, X):
+        return X["demand_lag_168h"].values
+
+
+def build_baseline_output(df, predictions, split_name):
+
+    output_df = df.copy()
+    output_df["split"] = split_name
+    output_df["model"] = "lag_24h_baseline"
+    output_df["y_pred"] = predictions
+    output_df["absolute_error"] = (
+        output_df["demand_mw"] - output_df["y_pred"]
+    ).abs()
 
     return output_df
 
@@ -119,6 +52,44 @@ if __name__ == "__main__":
     output_dir = Path("data/processed")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    output_df = xgbmodel()
-    output_df.to_csv(output_dir / "predictions_2021_01.csv", index=False)
+    data_path = "data/processed/final_data_2021_01.csv"
+    output_path = output_dir / "baseline_lag24h_predictions_2021_01.csv"
+    output_path2 = output_dir / "baseline_lag168h_predictions_2021_01.csv"
 
+    df = pd.read_csv(data_path)
+
+    train, calibration, test = data_partition(df, train_size=_TRAIN_SIZE, cal_size=_CAL_SIZE)
+
+    baseline_model = Lag24hBaseline()
+    baseline_model.fit(train, train["demand_mw"])
+
+    baseline_model2 = Lag168hBaseline()
+    baseline_model2.fit(train, train["demand_mw"])
+
+    train_pred = baseline_model.predict(train)
+    calibration_pred = baseline_model.predict(calibration)
+    test_pred = baseline_model.predict(test)
+
+    train_pred2 = baseline_model2.predict(train)
+    calibration_pred2 = baseline_model2.predict(calibration)
+    test_pred2 = baseline_model2.predict(test)
+
+    train_output = build_baseline_output(df=train, predictions=train_pred, split_name="train")
+    calibration_output = build_baseline_output(df=calibration, predictions=calibration_pred,
+        split_name="calibration")
+    test_output = build_baseline_output(df=test, predictions=test_pred, split_name="test")
+    
+    train_output2 = build_baseline_output(df=train, predictions=train_pred2, split_name="train")
+    calibration_output2 = build_baseline_output(df=calibration, predictions=calibration_pred2,
+        split_name="calibration")
+    test_output2 = build_baseline_output(df=test, predictions=test_pred2, split_name="test")
+
+    output_df = pd.concat([train_output, calibration_output, test_output], axis=0)
+    output_df.to_csv(output_path, index=False)
+
+    output_df2 = pd.concat([train_output2, calibration_output2, test_output2], axis=0)
+    output_df2.to_csv(output_path2, index=False)
+
+    print(f"Baseline predictions saved to {output_path}")
+    print(f"Baseline predictions saved to {output_path2}")
+    # print(output_df.head())

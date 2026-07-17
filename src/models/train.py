@@ -6,6 +6,7 @@ import matplotlib.dates as mdates
 import xgboost as xgb
 from pathlib import Path
 import joblib
+from src.config import _FEATURES, _TRAIN_SIZE, _CAL_SIZE
 
 
 def data_partition(df, train_size = 0.6, cal_size = 0.2):
@@ -51,17 +52,12 @@ if __name__ == "__main__":
     model_dir = Path("models")
     model_dir.mkdir(parents=True, exist_ok=True)
 
-    _TRAIN_SIZE = 0.6
-    _CAL_SIZE = 0.2
-
     data = "data/processed/final_data_2021_01.csv"
     df = pd.read_csv(data)
 
     train, calibration, test = data_partition(df, train_size = _TRAIN_SIZE, cal_size = _CAL_SIZE)
-    features = ['hour', 'day_of_week','is_weekend', 'month', 'day_of_year',
-            'demand_lag_1h', 'demand_lag_24h', 'demand_rolling_24h']
 
-    XGBmodel = xgbmodel(train, features)
+    XGBmodel = xgbmodel(train, _FEATURES)
     joblib.dump(XGBmodel, model_dir / "xgboost_v1.joblib")
 
 

@@ -25,6 +25,7 @@ def features_creation():
     # # Past features
     df_processed['demand_lag_1h'] = df_processed['demand_mw'].shift(1)
     df_processed['demand_lag_24h'] = df_processed['demand_mw'].shift(24)
+    df_processed['demand_lag_168h'] = df_processed['demand_mw'].shift(168)
     df_processed['demand_rolling_24h'] = df_processed["demand_mw"].shift(1).rolling(24).mean()
 
     return df_processed
@@ -37,7 +38,7 @@ if __name__ == "__main__":
     df.to_csv(output_dir / "final_data_2021_01.csv", index=False)
 
     print(df[['datetime', 'hour', 'day_of_week','is_weekend', 'month', 'day_of_year',
-                  'demand_lag_1h', 'demand_lag_24h', 'demand_rolling_24h']].head(5))
+                  'demand_lag_1h', 'demand_lag_24h','demand_lag_168h', 'demand_rolling_24h']].head(5))
 
     print(f"Rows downloaded: {len(df)}")
 
