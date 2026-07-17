@@ -96,54 +96,32 @@ if __name__ == "__main__":
     model_path = "models/xgboost_v1.joblib"
     output_path = Path("data/processed/predictions_2021_01.csv")
 
-    features = [
-        "hour",
-        "day_of_week",
-        "is_weekend",
-        "month",
-        "day_of_year",
-        "demand_lag_1h",
-        "demand_lag_24h",
-        "demand_rolling_24h",
-    ]
+    features = ["hour","day_of_week","is_weekend","month","day_of_year",
+        "demand_lag_1h","demand_lag_24h","demand_rolling_24h"]
 
     df = pd.read_csv(data_path)
 
-    train, calibration, test = data_partition(
-        df,
-        train_size=_TRAIN_SIZE,
-        cal_size=_CAL_SIZE,
-    )
+    train, calibration, test = data_partition(df, train_size=_TRAIN_SIZE, cal_size=_CAL_SIZE)
 
-    model = joblib.load(model_path)
+    XGBmodel = joblib.load(model_path)
 
-    calibration_pred = predict(model, calibration, features)
-    test_pred = predict(model, test, features)
+    calibration_pred = predict(XGBmodel, calibration, features)
+    test_pred = predict(XGBmodel, test, features)
 
     cal_df = calibration.copy()
     cal_df["y_pred"] = calibration_pred
     cal_df["absolute_error"] = np.abs(cal_df["demand_mw"] - cal_df["y_pred"])
 
     q = conformal_q(cal_df, alpha=_ALPHA, plot=True)
+    print(q)
 
-    output_df = build_conformal_predictions(
-        calibration=calibration,
-        test=test,
-        calibration_pred=calibration_pred,
-        test_pred=test_pred,
-        q=q,
-        alpha=_ALPHA,
-    )
+    output_df = build_conformal_predictions(calibration=calibration, test=test, calibration_pred=calibration_pred,
+        test_pred=test_pred, q=q, alpha=_ALPHA)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_df.to_csv(output_path, index=False)
 
     print(f"Predictions saved to {output_path}")
 
-    plot_conformal_predictions(
-        train=train,
-        calibration=calibration,
-        test=test,
-        output_df=output_df,
-        alpha=_ALPHA,
-    )
+    plot_conformal_predictions(train=train, calibration=calibration, test=test, output_df=output_df,
+        alpha=_ALPHA)

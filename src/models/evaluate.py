@@ -1,17 +1,11 @@
 import pandas as pd
 import numpy as np
+from pathlib import Path
 import matplotlib.pyplot as plt
-from sklearn.metrics import mean_squared_error 
+from sklearn.metrics import mean_squared_error
 
-def evaluation(alpha = 0.1):
-    data = "data/processed/predictions_2021_01.csv"
 
-    df = pd.read_csv(data)
-
-    # Calibration dataset
-    df_cal = df[df['split'] == 'calibration']
-
-    q = np.quantile(df_cal['absolute_error'], 1 - alpha)
+def evaluation(df, conformal_evaluation = True):
 
     # Test dataset
     df_test = df[df['split'] == 'test']
@@ -19,25 +13,36 @@ def evaluation(alpha = 0.1):
     y_test = df_test['demand_mw']
     test_pred = df_test['y_pred']
     test_errors = df_test['absolute_error']
-    upper = df_test['upper']
-    lower = df_test['lower']
+    
+    results = {
+    "MAE (Mw)": [np.mean(test_errors)],
+    "MAPE (%)": [np.mean(test_errors/y_test)*100],
+    "RMSE (Mw)": [np.sqrt(mean_squared_error(y_test, test_pred))],
+    }
 
-    coverage = np.mean((y_test.values >= lower) & (y_test.values <= upper))
+    if conformal_evaluation:
+        upper = df_test['upper']
+        lower = df_test['lower']
 
-    plt.hist(test_errors, bins = 20, edgecolor='white', linewidth=1.2, alpha=0.85)
-    plt.axvline(q, color='black', linestyle = '--', label = f'Percentil 90, {q:.2f}')
-    plt.show()
+        results = {
+            "MAE (Mw)": [np.mean(test_errors)],
+            "MAPE (%)": [np.mean(test_errors/y_test)*100],
+            "RMSE (Mw)": [np.sqrt(mean_squared_error(y_test, test_pred))],
+            "Coverage":[np.mean((y_test.values >= lower) & (y_test.values <= upper))],
+            "Mean width (Mw)": [np.mean(upper - lower)],
+            "Mean width (%)": [np.mean((upper - lower)/y_test)*100]}
 
-    print('Coverage:', coverage, 'vs', 1 - alpha)
-
-    print('Mean width (Mw):', np.mean(upper - lower))
-    print('Mean width (%):', np.mean((upper - lower)/y_test)*100)
-    print('Mean abs. error (Mw):', np.mean(test_errors))
-    print('Mean squared error:', np.mean( np.sqrt(mean_squared_error(y_test, test_pred))))
-
-    return 0
+    return pd.DataFrame(results)
 
 if __name__ == "__main__":
-    evaluation()    
+   
+    df_pred_path = Path("data/processed/predictions_2021_01.csv")
+
+    df_pred = pd.read_csv(df_pred_path)
+
+    evaluation_results = evaluation(df_pred, conformal_evaluation = False)
+
+    print(evaluation_results)
+
 
 
