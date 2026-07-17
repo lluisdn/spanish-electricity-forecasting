@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from pathlib import Path
 import joblib
+from src.config import _FEATURES, _TRAIN_SIZE, _CAL_SIZE, _ALPHA
+
 
 from src.models.train import data_partition
 from src.models.predict import predict
@@ -88,16 +90,9 @@ def plot_conformal_predictions(train, calibration, test, output_df, alpha=0.1):
 
 
 if __name__ == "__main__":
-    _TRAIN_SIZE = 0.6
-    _CAL_SIZE = 0.2
-    _ALPHA = 0.1
-
     data_path = "data/processed/final_data_2021_01.csv"
     model_path = "models/xgboost_v1.joblib"
     output_path = Path("data/processed/predictions_2021_01.csv")
-
-    features = ["hour","day_of_week","is_weekend","month","day_of_year",
-        "demand_lag_1h","demand_lag_24h","demand_rolling_24h"]
 
     df = pd.read_csv(data_path)
 
@@ -105,8 +100,8 @@ if __name__ == "__main__":
 
     XGBmodel = joblib.load(model_path)
 
-    calibration_pred = predict(XGBmodel, calibration, features)
-    test_pred = predict(XGBmodel, test, features)
+    calibration_pred = predict(XGBmodel, calibration, _FEATURES)
+    test_pred = predict(XGBmodel, test, _FEATURES)
 
     cal_df = calibration.copy()
     cal_df["y_pred"] = calibration_pred
